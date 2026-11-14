@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnóstico · Organik</title>
+<style>body{font-family:-apple-system,Segoe UI,sans-serif;background:#0b130d;color:#f6f1e4;max-width:640px;margin:0 auto;padding:20px}h1{font-size:20px;margin:0 0 4px}
+.r{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #26352a;font-size:14px;line-height:1.4}.i{width:22px;flex:none;text-align:center;font-weight:700}
+.ok .i{color:#8fd14f}.no .i{color:#ff7b6b}.wa .i{color:#f2c46d}.d{color:#a9b3a3;font-size:13px}</style></head><body>
+<h1>Diagnóstico del sistema</h1><p class="d">Solo lectura: no crea ni modifica nada. Se puede borrar cuando termines las pruebas.</p><div id="out"></div>
+<script src="config.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, getDocs, query, limit } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+const O = window.ORGANIK || {}, out = document.getElementById('out');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fila = (e, t, d = '') => { const x = document.createElement('div'); x.className = 'r ' + e; x.innerHTML = '<span class="i">' + {ok:'✓',no:'✕',wa:'!'}[e] + '</span><div><b>' + t + '</b><div class="d">' + esc(d) + '</div></div>'; out.appendChild(x); };
+const limite = (p, ms = 10000) => Promise.race([p, new Promise((_, r) => setTimeout(() => r({ code: 'timeout' }), ms))]);
+
+if (JSON.stringify(O).includes('COMPLETAR') || !O.firebase) fila('no', 'config.js', 'Todavía tiene datos "COMPLETAR". Subí el config.js con tus datos reales.');
+else fila('ok', 'config.js con datos reales', 'Proyecto Firebase: ' + O.firebase.projectId);
+
+for (const [ruta, n] of [['admin/index.html', 'Panel de ventas (/admin/)'], ['control/index.html', 'App de puerta (/control/)'], ['assets/logo-organik.png', 'Logo para el mail (assets/logo-organik.png)']]) {
+  try { const r = await fetch(ruta, { method: 'HEAD', cache: 'no-store' }); r.ok ? fila('ok', n) : fila('no', n, 'No se encuentra (error ' + r.status + '). Revisá que el archivo esté en esa carpeta.'); }
+  catch (e) { fila('no', n, 'No se pudo comprobar.'); }
+}
+
+let desfase = 0;
+try { const r = await fetch(location.href, { method: 'HEAD', cache: 'no-store' }); const d = r.headers.get('Date'); if (d) desfase = Date.parse(d) - Date.now(); } catch (e) {}
+const ab = (O.tandas || []).filter(t => Date.now() + desfase >= Date.parse(t.desde) && Date.now() + desfase <= Date.parse(t.hasta));
+ab.length ? fila('ok', 'Tanda abierta ahora', ab.map(t => t.nombre + ' $' + t.precio).join(', ')) : fila('wa', 'Ninguna tanda abierta ahora', 'La tienda va a decir que la venta no está habilitada. Es lo esperado fuera de horario.');
+
+if (!/COMPLETAR/.test(JSON.stringify(O.firebase || {}))) {
+  const db = getFirestore(initializeApp(O.firebase));
+  try { await limite(getDocs(query(collection(db, 'entradas'), limit(1)))); fila('ok', 'Reglas de Firebase publicadas', 'La app de puerta puede leer las entradas.'); }
+  catch (e) { fila('no', 'Reglas de Firebase', e.code === 'timeout' ? 'Firebase no responde.' : 'No se pueden leer las entradas (' + e.code + '). Probablemente las reglas no están publicadas.'); }
+  try { await limite(getDocs(query(collection(db, 'pedidos'), limit(1)))); fila('no', 'Los pedidos NO están protegidos', 'Cualquiera puede leerlos. Revisá las reglas.'); }
+  catch (e) { e.code === 'permission-denied' ? fila('ok', 'Pedidos protegidos', 'Solo el panel (con tu cuenta de Google) puede leerlos.') : fila('wa', 'Pedidos', 'No se pudo comprobar (' + e.code + ').'); }
+}
+
+try { const r = await limite(fetch(O.emailScriptUrl), 15000); const j = await r.json(); j.ok ? fila('ok', 'Script de correo activo', 'Envíos disponibles hoy: ' + j.restante) : fila('no', 'Script de correo', 'Respondió con un error.'); }
+catch (e) { fila('no', 'Script de correo no responde', 'Revisá que la URL termine en /exec y que la implementación tenga acceso para "Cualquier usuario".'); }
+
+(O.transferencia && O.transferencia.alias && O.whatsapp) ? fila('ok', 'Datos de pago', 'Alias ' + O.transferencia.alias + ' · WhatsApp ' + O.whatsapp) : fila('wa', 'Datos de pago', 'Falta el alias o el WhatsApp en config.js.');
+</script></body></html>
