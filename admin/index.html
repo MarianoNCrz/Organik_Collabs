@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Organik · Panel de ventas</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#111;padding:1rem}
+.c{max-width:760px;margin:0 auto}.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap}h1{font-size:20px;margin:0}
+button,select,input{font:inherit;padding:9px 12px;border:1px solid #ddd;border-radius:8px;background:#fff}button{cursor:pointer}button.p{background:#111;color:#fff;border-color:#111}button:disabled{opacity:.5}
+.st{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}.st div{background:#fff;border:1px solid #eee;border-radius:10px;padding:10px;text-align:center;font-size:11px;color:#888}.st b{display:block;font-size:20px;color:#111}
+details{background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 14px;margin-bottom:1rem}summary{cursor:pointer;font-weight:500}details input{width:100%;margin-top:8px}
+.f{display:flex;gap:8px;margin-bottom:1rem}.f input{flex:1}
+.o{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px;margin-bottom:10px;font-size:14px;line-height:1.5}
+.o .t{display:flex;justify-content:space-between;gap:8px;font-weight:600}.o .m{color:#666;font-size:13px}
+.b{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}.b.Pendiente{background:#fff3cd;color:#8a6d00}.b.Pagado{background:#e8f5e9;color:#2e7d32}.b.Anulado{background:#eee;color:#888}
+.w{background:#fdecea;color:#c62828;border-radius:6px;padding:6px 10px;margin-top:8px;font-size:13px}
+.a{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}#msg{font-size:14px;margin:10px 0;min-height:20px;color:#333}
+@media(max-width:560px){.st{grid-template-columns:repeat(2,1fr)}}
+</style></head><body><div class="c">
+<div class="hd"><h1>Panel de ventas · Organik Collabs</h1><div id="who"></div></div>
+<div id="login"><p>Ingresá con una cuenta de Google autorizada.</p><button class="p" onclick="entrar()">Ingresar con Google</button></div>
+<div id="app" style="display:none">
+  <div class="st"><div><b id="s1">0</b>Pedidos</div><div><b id="s2">0</b>Pendientes</div><div><b id="s3">0</b>Entradas pagas</div><div><b id="s4">$0</b>Recaudado</div></div>
+  <details><summary>Envío de emails</summary><input type="password" id="clave" placeholder="Clave del script de email (se guarda en este navegador)"></details>
+  <div class="f"><select id="fe"><option value="">Todos</option><option>Pendiente</option><option>Pagado</option><option>Anulado</option></select><input id="fb" placeholder="Buscar por nombre, DNI, código o correo"></div>
+  <div id="lista"></div>
+</div>
+<div id="msg"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="../config.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, getDocs, writeBatch, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const O = window.ORGANIK, app = initializeApp(O.firebase), auth = getAuth(app), db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $$ = n => '$' + Number(n).toLocaleString('es-AR');
+const aviso = t => { $('msg').textContent = t; };
+let pedidos = [], baja = null, ocupado = false;
+$('clave').value = localStorage.getItem('org_clave') || '';
+$('clave').oninput = () => localStorage.setItem('org_clave', $('clave').value);
+$('fe').onchange = $('fb').oninput = () => pintar();
+
+window.entrar = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => aviso('No se pudo ingresar: ' + e.message));
+window.salir = () => signOut(auth);
+onAuthStateChanged(auth, u => {
+  $('login').style.display = u ? 'none' : 'block'; $('app').style.display = u ? 'block' : 'none';
+  $('who').innerHTML = u ? esc(u.email) + ' <button onclick="salir()">Salir</button>' : '';
+  if (baja) { baja(); baja = null; }
+  if (u) baja = onSnapshot(query(collection(db, 'pedidos'), orderBy('creado', 'desc')),
+    s => { pedidos = s.docs.map(d => ({ id: d.id, ...d.data() })); pintar(); },
+    () => aviso('Esta cuenta no tiene permiso para ver los pedidos.'));
+});
+
+function waLink(w) { let d = String(w).replace(/\D/g, '').replace(/^0+/, ''); if (d.length === 10) d = '549' + d; return 'https://wa.me/' + d; }
+
+function tarjeta(p) {
+  const t = O.tandas.find(x => x.id === p.tanda), c = p.creado && p.creado.toMillis ? p.creado.toMillis() : null, av = [];
+  if (!t) av.push('Tanda desconocida');
+  else {
+    if (p.precioUnitario !== t.precio) av.push('El precio no coincide con la tanda (' + $$(t.precio) + ')');
+    if (c && (c < Date.parse(t.desde) || c > Date.parse(t.hasta))) av.push('Pedido hecho fuera del horario de esa tanda');
+  }
+  const fecha = c ? new Date(c).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  let acc = '';
+  if (p.estado === 'Pendiente') acc = `<button class="p" data-a="pagar" data-id="${esc(p.id)}">Marcar PAGADO y enviar entradas</button><button data-a="anular" data-id="${esc(p.id)}">Anular</button>`;
+  else if (p.estado === 'Pagado') acc = `<button data-a="reenviar" data-id="${esc(p.id)}">${p.emailEnviado ? 'Reenviar email' : 'Reintentar envío del email'}</button>`;
+  return `<div class="o"><div class="t"><span>${esc(p.nombre)}</span><span class="b ${esc(p.estado)}">${esc(p.estado)}</span></div>
+    <div class="m">${esc(p.id)} · ${esc(fecha)} · DNI ${esc(p.dni)}</div>
+    <div>${esc(p.cantidad)} × ${esc(p.tandaNombre)} = <b>${$$(p.total)}</b> · ${esc(p.metodo)}</div>
+    <div class="m">${esc(p.correo)} · <a href="${esc(waLink(p.whatsapp))}" target="_blank" rel="noopener">WhatsApp ${esc(p.whatsapp)}</a></div>
+    ${p.entradas ? `<div class="m">Entradas: ${esc(p.entradas.join(', '))}${p.estado === 'Pagado' && !p.emailEnviado ? ' · <b>email sin enviar</b>' : ''}</div>` : ''}
+    ${av.map(x => `<div class="w">⚠ ${esc(x)}</div>`).join('')}<div class="a">${acc}</div></div>`;
+}
+
+function pintar() {
+  const pag = pedidos.filter(p => p.estado === 'Pagado');
+  $('s1').textContent = pedidos.length; $('s2').textContent = pedidos.filter(p => p.estado === 'Pendiente').length;
+  $('s3').textContent = pag.reduce((a, p) => a + p.cantidad, 0); $('s4').textContent = $$(pag.reduce((a, p) => a + p.total, 0));
+  const e = $('fe').value, b = $('fb').value.toLowerCase();
+  const l = pedidos.filter(p => (!e || p.estado === e) && (!b || [p.nombre, p.dni, p.id, p.correo].join(' ').toLowerCase().includes(b)));
+  $('lista').innerHTML = l.length ? l.map(tarjeta).join('') : '<p>No hay pedidos.</p>';
+}
+
+function qrPng(txt) {
+  const qr = qrcode(0, 'M'); qr.addData(txt); qr.make();
+  const n = qr.getModuleCount(), cell = 8, m = 4, size = (n + 2 * m) * cell;
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, size, size); x.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) x.fillRect((c + m) * cell, (r + m) * cell, cell, cell);
+  return cv.toDataURL('image/png').split(',')[1];   // solo el QR, sin texto
+}
+
+async function enviar(p, ids) {
+  const clave = $('clave').value;
+  if (!O.emailScriptUrl || /COMPLETAR/.test(O.emailScriptUrl) || !clave) throw new Error('falta la URL del script (config.js) o la clave (Envío de emails)');
+  let j;
+  try {
+    const r = await fetch(O.emailScriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ clave, email: p.correo, nombre: p.nombre, qrs: ids.map(id => ({ id, png: qrPng(id) })) }) });
+    j = await r.json();
+  } catch (e) { throw new Error('sin conexión o URL del script incorrecta'); }
+  if (!j.ok) throw new Error(j.error || 'error desconocido');
+  await updateDoc(doc(db, 'pedidos', p.id), { emailEnviado: true, emailEnviadoEn: serverTimestamp() });
+}
+
+async function pagar(p) {
+  if (!confirm(`¿Confirmás que ingresaron ${$$(p.total)} a la cuenta por ${p.nombre}?\nSe van a crear ${p.cantidad} entrada(s) y se envía el email.`)) return;
+  aviso('Creando entradas...');
+  const ya = await getDocs(query(collection(db, 'entradas'), where('dni', '==', p.dni)));
+  let n = 0; ya.forEach(d => { const k = parseInt(d.id.split('_')[1], 10); if (k >= n) n = k + 1; });
+  const ids = Array.from({ length: p.cantidad }, (_, i) => p.dni + '_' + (n + i));   // 13445567_0, 13445567_1...
+  const b = writeBatch(db);
+  ids.forEach(id => b.set(doc(db, 'entradas', id), { dni: p.dni, nombre: p.nombre, pedido: p.id, tanda: p.tandaNombre, ingreso: false, hora: '' }));
+  b.update(doc(db, 'pedidos', p.id), { estado: 'Pagado', entradas: ids, emailEnviado: false, pagadoEn: serverTimestamp() });
+  await b.commit();
+  aviso('Entradas creadas. Enviando email...');
+  await enviar(p, ids);
+  aviso('✓ Listo: ' + ids.length + ' entrada(s) enviadas a ' + p.correo);
+}
+
+$('lista').addEventListener('click', async ev => {
+  const bt = ev.target.closest('button[data-a]'); if (!bt || ocupado) return;
+  const p = pedidos.find(x => x.id === bt.dataset.id); if (!p) return;
+  ocupado = true; bt.disabled = true;
+  try {
+    if (bt.dataset.a === 'pagar') await pagar(p);
+    else if (bt.dataset.a === 'reenviar') { aviso('Enviando email...'); await enviar(p, p.entradas); aviso('✓ Email enviado a ' + p.correo); }
+    else if (bt.dataset.a === 'anular' && confirm('¿Anular el pedido de ' + p.nombre + '?')) { await updateDoc(doc(db, 'pedidos', p.id), { estado: 'Anulado' }); aviso('Pedido anulado.'); }
+  } catch (e) { aviso('No se pudo completar: ' + e.message + (p.estado === 'Pagado' || bt.dataset.a === 'pagar' ? ' · Si las entradas ya se crearon, usá "Reintentar envío del email".' : '')); }
+  ocupado = false; bt.disabled = false;
+});
+</script></body></html>
