@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cuentas de Google autorizadas para el panel de ventas
+    function esAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'organikxperience@gmail.com',
+          'marianoc57@gmail.com'
+        ];
+    }
+
+    // PEDIDOS: cualquiera puede crear uno (siempre queda Pendiente). Solo el admin lo lee o lo modifica.
+    match /pedidos/{id} {
+      allow create: if id.matches('^OC-[A-Z2-9]{6}$')
+        && request.resource.data.keys().hasOnly(['nombre','dni','correo','whatsapp','cantidad','tanda','tandaNombre','precioUnitario','total','metodo','estado','mayor21','creado'])
+        && request.resource.data.keys().hasAll(['nombre','dni','correo','whatsapp','cantidad','tanda','tandaNombre','precioUnitario','total','metodo','estado','mayor21','creado'])
+        && request.resource.data.estado == 'Pendiente'
+        && request.resource.data.creado == request.time
+        && request.resource.data.mayor21 == true
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
+        && request.resource.data.dni is string && request.resource.data.dni.matches('^[0-9]{7,8}$')
+        && request.resource.data.correo is string && request.resource.data.correo.size() <= 120
+        && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() <= 20
+        && request.resource.data.cantidad is int && request.resource.data.cantidad >= 1 && request.resource.data.cantidad <= 10
+        && request.resource.data.tanda in ['SuperEarly','Early1','Early2','Tanda1','Tanda2']
+        && request.resource.data.tandaNombre is string && request.resource.data.tandaNombre.size() <= 40
+        && request.resource.data.metodo == 'Transferencia'
+        && request.resource.data.precioUnitario is int
+        && request.resource.data.total == request.resource.data.precioUnitario * request.resource.data.cantidad;
+      allow read, update, delete: if esAdmin();
+    }
+
+    // ENTRADAS: las crea el admin al confirmar el pago. La puerta las lee y solo puede pasar ingreso de false a true.
+    match /entradas/{id} {
+      allow read: if true;
+      allow create, delete: if esAdmin();
+      allow update: if esAdmin()
+        || (resource.data.ingreso == false
+            && request.resource.data.ingreso == true
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ingreso','hora']));
+    }
+  }
+}
