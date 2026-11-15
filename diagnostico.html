@@ -34,7 +34,9 @@ if (!/COMPLETAR/.test(JSON.stringify(O.firebase || {}))) {
   catch (e) { e.code === 'permission-denied' ? fila('ok', 'Pedidos protegidos', 'Solo el panel (con tu cuenta de Google) puede leerlos.') : fila('wa', 'Pedidos', 'No se pudo comprobar (' + e.code + ').'); }
 }
 
-try { const r = await limite(fetch(O.emailScriptUrl), 15000); const j = await r.json(); j.ok ? fila('ok', 'Script de correo activo', 'Envíos disponibles hoy: ' + j.restante) : fila('no', 'Script de correo', 'Respondió con un error.'); }
+try { const r = await limite(fetch(O.emailScriptUrl), 15000); const j = await r.json(); if (!j.ok) fila('no', 'Script de correo', 'Respondió con un error.');
+  else if (j.cuenta === 'organikxperience@gmail.com') fila('ok', 'Los mails salen desde organikxperience@gmail.com', 'Envíos disponibles hoy: ' + j.restante);
+  else fila('wa', 'El script funciona, pero NO sale desde organikxperience@gmail.com', 'Hoy sale desde: ' + (j.cuenta || '(el script viejo no informa la cuenta)') + '. Implementá enviar-entradas.gs entrando con organikxperience@gmail.com y actualizá emailScriptUrl en config.js.'); }
 catch (e) { fila('no', 'Script de correo no responde', 'Revisá que la URL termine en /exec y que la implementación tenga acceso para "Cualquier usuario".'); }
 
 (O.transferencia && O.transferencia.alias && O.whatsapp) ? fila('ok', 'Datos de pago', 'Alias ' + O.transferencia.alias + ' · WhatsApp ' + O.whatsapp) : fila('wa', 'Datos de pago', 'Falta el alias o el WhatsApp en config.js.');
