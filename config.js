@@ -9,9 +9,9 @@ window.ORGANIK = {
     messagingSenderId: "237359301179",
     appId: "1:237359301179:web:b4ddb1877548acc1a6921e"
   },
-  emailScriptUrl: "https://script.google.com/macros/s/AKfycbwP9opMk3kQ6Kyta6wA9VL0wXIRxJ35jrfOwPGQWC5ttUq79EFGARdHGSySPj7H6gKTSw/exec",          // URL /exec del script de envío (cuenta organikxperience@gmail.com)
-  whatsapp: "5493816129812",            // WhatsApp de Organik (prueba): 549 + código de área + número, sin + ni espacios
-  transferencia: { alias: "organik.collabs", titular: "Mariano Cruz", cbu: "1430001713003799560014" },   // alias de prueba; titular y CBU se muestran si los completás
+  emailScriptUrl: "https://script.google.com/macros/s/AKfycbxMe3IKvRXhI64qXOPtCOIB0on8fXWjAFG283cb60BA5mBq2aEfgJdg5BoHWWsHCqcB/exec",          // URL /exec del script de envío (cuenta organikxperience@gmail.com)
+  whatsapp: "5493812081005",            // WhatsApp de Organik (prueba): 549 + código de área + número, sin + ni espacios
+  transferencia: { alias: "ORGANIK.ACCESOS", titular: "Sofia Soledad ALDERETE", cbu: "1430001713040589640019" },   // alias de prueba; titular y CBU se muestran si los completás
   maxPorPersona: 10,
   // Horarios de Argentina (-03:00). La tienda solo muestra las tandas abiertas en este momento.
   tandas: [
