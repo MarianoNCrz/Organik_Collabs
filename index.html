@@ -37,6 +37,8 @@ nav a{text-decoration:none}
 nav a:hover{color:var(--leaf)}
 .cta{display:inline-flex;align-items:center;gap:10px;background:var(--leaf);color:#0b130d;font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.12em;text-transform:uppercase;padding:16px 24px;border:0;text-decoration:none;cursor:pointer}
 .cta:hover{background:var(--amber)}
+.cta:disabled,.cta:disabled:hover{background:#2b382d;color:#74806f;cursor:not-allowed}
+form.off{opacity:.45}form.off .chk,form.off .tn,form.off label,form.off select{cursor:not-allowed}form.off .chk{border-color:var(--line);background:transparent}
 .ghost{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:6px}
 :focus-visible{outline:2px solid var(--amber);outline-offset:3px}
 .hero{position:relative;padding-block:56px 40px;overflow:hidden}
@@ -198,12 +200,16 @@ footer .w{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     btn.textContent=(n>1?'Comprar entradas':'Comprar entrada')+' ↗';
     res.textContent=t?'Total: '+$$(t.precio*n)+(n>1?' ('+n+' × '+$$(t.precio)+')':''):'';
   }
+  function bloquear(on){
+    f.classList.toggle('off',on);
+    f.querySelectorAll('input,select,button').forEach(function(el){if(el.id!=='web')el.disabled=on});
+  }
   function dibujar(){
     if(cerrada()){agotadas();return}
     var ab=abiertas(),k=ab.map(function(t){return t.id}).join();
     if(k===visibles)return; visibles=k;
-    if(!ab.length){box.innerHTML='<p class="mono" style="margin:0">La venta de entradas no está habilitada en este momento.</p>';btn.disabled=true;resumir();return}
-    btn.disabled=false;
+    if(!ab.length){box.innerHTML='<p class="mono" style="margin:0">La venta de entradas no está habilitada en este momento.</p>';bloquear(true);resumir();return}
+    bloquear(false);
     box.innerHTML=ab.map(function(t){return '<label class="tn" for="t_'+t.id+'"><span><input type="radio" name="tanda" id="t_'+t.id+'" value="'+t.id+'"'+(ab.length===1?' checked':'')+'>'+esc(t.nombre)+'</span><b>'+$$(t.precio)+'</b></label>'}).join('');
     resumir();
   }
