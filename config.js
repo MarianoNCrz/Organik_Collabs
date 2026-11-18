@@ -10,7 +10,7 @@ window.ORGANIK = {
     appId: "1:237359301179:web:b4ddb1877548acc1a6921e"
   },
   emailScriptUrl: "https://script.google.com/macros/s/AKfycbxMe3IKvRXhI64qXOPtCOIB0on8fXWjAFG283cb60BA5mBq2aEfgJdg5BoHWWsHCqcB/exec",          // URL /exec del script de envío (cuenta organikxperience@gmail.com)
-  whatsapp: "5493813814666911",            // WhatsApp de Organik (prueba): 549 + código de área + número, sin + ni espacios
+  whatsapp: "5493814666911",            // WhatsApp de Organik (prueba): 549 + código de área + número, sin + ni espacios
   transferencia: { alias: "ORGANIK.ACCESOS", titular: "Sofia Soledad ALDERETE", cbu: "1430001713040589640019" },   // alias de prueba; titular y CBU se muestran si los completás
     maxPorPersona: 10,
   cierreWeb: "2027-01-01T00:00:00-03:00",
