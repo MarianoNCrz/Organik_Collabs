@@ -16,7 +16,7 @@ window.ORGANIK = {
   cierreWeb: "2027-01-01T00:00:00-03:00",
   puerta: { precio: 30000 },
   tandas: [
-    { id: "SuperEarly", nombre: "SuperEarly",      precio: 10000, desde: "2026-11-18T16:56:00-03:00", hasta: "2026-11-22T23:59:59.999-03:00" },
+    { id: "SuperEarly", nombre: "SuperEarly",      precio: 10000, desde: "2026-11-18T17:00:00-03:00", hasta: "2026-11-22T23:59:59.999-03:00" },
     { id: "Early1",     nombre: "Early tanda 1",   precio: 15000, desde: "2026-11-23T00:00:00-03:00", hasta: "2026-11-29T23:59:59.999-03:00" },
     { id: "Tanda1",     nombre: "Entrada tanda 1", precio: 20000, desde: "2026-11-30T00:00:00-03:00", hasta: "2026-12-13T23:59:59.999-03:00" },
     { id: "Tanda2",     nombre: "Entrada tanda 2", precio: 25000, desde: "2026-12-14T00:00:00-03:00", hasta: "2026-12-31T23:59:59.999-03:00" }
