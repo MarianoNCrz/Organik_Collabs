@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Organik · Panel de ventas</title>
+<link rel="icon" href="../assets/favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png"><link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#111;padding:1rem}
 .c{max-width:760px;margin:0 auto}.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap}h1{font-size:20px;margin:0}
@@ -13,15 +14,34 @@ details{background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 14
 .b{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}.b.Pendiente{background:#fff3cd;color:#8a6d00}.b.Pagado{background:#e8f5e9;color:#2e7d32}.b.Anulado{background:#eee;color:#888}
 .w{background:#fdecea;color:#c62828;border-radius:6px;padding:6px 10px;margin-top:8px;font-size:13px}
 .a{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}#msg{font-size:14px;margin:10px 0;min-height:20px;color:#333}
+.tabs{display:flex;gap:8px;margin-bottom:1rem}.tb.on{background:#111;color:#fff;border-color:#111}
+.o label{display:block;font-size:13px;color:#666;margin-bottom:8px}.o label input,.o label select{width:100%;margin-top:4px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#t-pue h3{font-size:15px;margin:18px 0 8px}
 @media(max-width:560px){.st{grid-template-columns:repeat(2,1fr)}}
 </style></head><body><div class="c">
 <div class="hd"><h1>Panel de ventas · Organik Collabs</h1><div id="who"></div></div>
 <div id="login"><p>Ingresá con una cuenta de Google autorizada.</p><button class="p" onclick="entrar()">Ingresar con Google</button></div>
 <div id="app" style="display:none">
+  <div class="tabs"><button class="tb on" data-t="ped">Pedidos online</button><button class="tb" data-t="pue">Venta en puerta</button></div>
+  <div id="t-ped">
   <div class="st"><div><b id="s1">0</b>Pedidos</div><div><b id="s2">0</b>Pendientes</div><div><b id="s3">0</b>Entradas pagas</div><div><b id="s4">$0</b>Recaudado</div></div>
   <details><summary>Envío de emails</summary><input type="password" id="clave" placeholder="Clave del script de email (se guarda en este navegador)"></details>
   <div class="f"><select id="fe"><option value="">Todos</option><option>Pendiente</option><option>Pagado</option><option>Anulado</option></select><input id="fb" placeholder="Buscar por nombre, DNI, código o correo"></div>
   <div id="lista"></div>
+  </div>
+  <div id="t-pue" hidden>
+    <div class="st"><div><b id="p1">0</b>Entradas</div><div><b id="p2">$0</b>Recaudado</div><div><b id="p3">0</b>Ventas</div><div><b id="p4">$0</b>Precio c/u</div></div>
+    <div class="o">
+      <div class="t"><span>Nueva venta en puerta</span></div>
+      <div class="g2"><label>Cantidad<input id="pc" type="number" min="1" max="50" value="1" inputmode="numeric"></label><label>Precio c/u<input id="pp" type="number" min="0" step="500" inputmode="numeric"></label></div>
+      <div class="g2"><label>Medio de pago<select id="pm"><option>Efectivo</option><option>Transferencia</option></select></label><label>DNI (opcional)<input id="pd" inputmode="numeric" maxlength="10" placeholder="Sin puntos"></label></div>
+      <label>Nombre (opcional)<input id="pn" placeholder="Nombre y apellido"></label>
+      <div id="ptot" style="font-size:20px;font-weight:700;margin:10px 0"></div>
+      <button class="p" id="pv" style="width:100%;padding:14px">Cobrar y registrar ingreso</button>
+    </div>
+    <h3>Ventas en puerta</h3>
+    <div id="plista"></div>
+  </div>
 </div>
 <div id="msg"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
@@ -43,13 +63,17 @@ $('fe').onchange = $('fb').oninput = () => pintar();
 
 window.entrar = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => aviso('No se pudo ingresar: ' + e.message));
 window.salir = () => signOut(auth);
+let puerta = [], bajaP = null;
 onAuthStateChanged(auth, u => {
   $('login').style.display = u ? 'none' : 'block'; $('app').style.display = u ? 'block' : 'none';
   $('who').innerHTML = u ? esc(u.email) + ' <button onclick="salir()">Salir</button>' : '';
   if (baja) { baja(); baja = null; }
+  if (bajaP) { bajaP(); bajaP = null; }
   if (u) baja = onSnapshot(query(collection(db, 'pedidos'), orderBy('creado', 'desc')),
     s => { pedidos = s.docs.map(d => ({ id: d.id, ...d.data() })); pintar(); },
     () => aviso('Esta cuenta no tiene permiso para ver los pedidos.'));
+  if (u) bajaP = onSnapshot(query(collection(db, 'entradas'), where('origen', '==', 'puerta')),
+    s => { puerta = s.docs.map(d => ({ id: d.id, ...d.data() })); pintarP(); }, () => {});
 });
 
 function waLink(w) { let d = String(w).replace(/\D/g, '').replace(/^0+/, ''); if (d.length === 10) d = '549' + d; return 'https://wa.me/' + d; }
@@ -118,6 +142,58 @@ async function pagar(p) {
   await enviar(p, ids);
   aviso('✓ Listo: ' + ids.length + ' entrada(s) enviadas a ' + p.correo);
 }
+
+// ---------- Venta en puerta ----------
+const precioPuerta = (O.puerta && O.puerta.precio) || 0;
+$('pp').value = precioPuerta; $('p4').textContent = $$(precioPuerta);
+document.querySelectorAll('.tb').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tb').forEach(x => x.classList.toggle('on', x === b));
+  $('t-ped').hidden = b.dataset.t !== 'ped'; $('t-pue').hidden = b.dataset.t !== 'pue';
+});
+function calcP() {
+  const n = Math.max(1, Math.min(50, parseInt($('pc').value, 10) || 1)), p = parseInt($('pp').value, 10) || 0;
+  $('ptot').textContent = 'Total a cobrar: ' + $$(n * p) + (n > 1 ? ' (' + n + ' × ' + $$(p) + ')' : '');
+  return { n, p };
+}
+$('pc').oninput = $('pp').oninput = calcP; calcP();
+
+function pintarP() {
+  $('p1').textContent = puerta.length; $('p2').textContent = $$(puerta.reduce((s, x) => s + (x.precio || 0), 0));
+  const g = {}; puerta.forEach(x => { (g[x.venta] = g[x.venta] || []).push(x); });
+  const l = Object.entries(g).map(([v, xs]) => ({ v, xs, t: Math.max(...xs.map(x => x.creado && x.creado.toMillis ? x.creado.toMillis() : 0)) })).sort((a, b) => b.t - a.t);
+  $('p3').textContent = l.length;
+  $('plista').innerHTML = l.length ? l.map(s => { const x = s.xs[0];
+    return `<div class="o"><div class="t"><span>${s.xs.length} × ${$$(x.precio)} = ${$$(s.xs.length * x.precio)}</span><span class="m">${esc(x.hora)}</span></div>
+      <div class="m">${esc(x.medio)} · ${esc(x.nombre)}${x.dni ? ' · DNI ' + esc(x.dni) : ''}</div>
+      <div class="a"><button data-a="anularp" data-v="${esc(s.v)}">Anular venta</button></div></div>`; }).join('') : '<p>Todavía no hay ventas en puerta.</p>';
+}
+
+async function venderPuerta() {
+  const { n, p } = calcP(), medio = $('pm').value, dni = $('pd').value.replace(/\D/g, ''), nombre = $('pn').value.trim().replace(/\s+/g, ' ');
+  if (!(p > 0)) { aviso('Poné el precio de la entrada.'); return; }
+  if (dni && !/^\d{6,9}$/.test(dni)) { aviso('Revisá el DNI, o dejalo vacío.'); return; }
+  if (!confirm(`¿Cobrar ${$$(n * p)} (${n} entrada${n > 1 ? 's' : ''}, ${medio}) y registrar el ingreso?`)) return;
+  const v = Date.now().toString(36).toUpperCase(), hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }), b = writeBatch(db);
+  for (let i = 1; i <= n; i++) b.set(doc(db, 'entradas', 'PUERTA-' + v + '-' + i),
+    { origen: 'puerta', venta: v, nombre: nombre || 'Venta en puerta', dni, tanda: 'Puerta', precio: p, medio, ingreso: true, hora, creado: serverTimestamp() });
+  await b.commit();
+  $('pc').value = 1; $('pn').value = ''; $('pd').value = ''; calcP();
+  aviso('✓ Venta registrada: ' + n + ' entrada' + (n > 1 ? 's' : '') + ', ' + $$(n * p));
+}
+$('pv').onclick = async () => {
+  if (ocupado) return; ocupado = true; $('pv').disabled = true;
+  try { await venderPuerta(); } catch (e) { aviso('No se pudo registrar: ' + e.message); }
+  ocupado = false; $('pv').disabled = false;
+};
+$('plista').addEventListener('click', async ev => {
+  const bt = ev.target.closest('button[data-a="anularp"]'); if (!bt || ocupado) return;
+  const xs = puerta.filter(x => x.venta === bt.dataset.v);
+  if (!xs.length || !confirm('¿Anular la venta de ' + xs.length + ' entrada(s)? Se borran del sistema.')) return;
+  ocupado = true;
+  try { const b = writeBatch(db); xs.forEach(x => b.delete(doc(db, 'entradas', x.id))); await b.commit(); aviso('Venta anulada.'); }
+  catch (e) { aviso('No se pudo anular: ' + e.message); }
+  ocupado = false;
+});
 
 $('lista').addEventListener('click', async ev => {
   const bt = ev.target.closest('button[data-a]'); if (!bt || ocupado) return;

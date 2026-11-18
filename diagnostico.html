@@ -24,7 +24,8 @@ for (const [ruta, n] of [['admin/index.html', 'Panel de ventas (/admin/)'], ['co
 let desfase = 0;
 try { const r = await fetch(location.href, { method: 'HEAD', cache: 'no-store' }); const d = r.headers.get('Date'); if (d) desfase = Date.parse(d) - Date.now(); } catch (e) {}
 const ab = (O.tandas || []).filter(t => Date.now() + desfase >= Date.parse(t.desde) && Date.now() + desfase <= Date.parse(t.hasta));
-ab.length ? fila('ok', 'Tanda abierta ahora', ab.map(t => t.nombre + ' $' + t.precio).join(', ')) : fila('wa', 'Ninguna tanda abierta ahora', 'La tienda va a decir que la venta no está habilitada. Es lo esperado fuera de horario.');
+if (O.cierreWeb && Date.now() + desfase >= Date.parse(O.cierreWeb)) fila('ok', 'Venta web cerrada', 'La tienda muestra todas las entradas como AGOTADAS y el precio en puerta.');
+else ab.length ? fila('ok', 'Tanda abierta ahora', ab.map(t => t.nombre + ' $' + t.precio).join(', ')) : fila('wa', 'Ninguna tanda abierta ahora', 'La tienda va a decir que la venta no está habilitada. Es lo esperado fuera de horario.');
 
 if (!/COMPLETAR/.test(JSON.stringify(O.firebase || {}))) {
   const db = getFirestore(initializeApp(O.firebase));

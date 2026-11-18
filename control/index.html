@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Control Organik">
 <title>Organik Collabs · Control de acceso</title>
+<link rel="icon" href="../assets/favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png"><link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:1rem;color:#111}
@@ -256,7 +257,7 @@ function renderList(q) {
       <span class="bdg ${bdgCls}">${bdgTxt}</span>
       <span class="g-name">${esc(g.nombre)}</span>
       <div style="text-align:right">
-        <div class="g-sub">DNI ${esc(g.dni||dni)}${dni.includes('_')?' · entrada '+(parseInt(dni.split('_')[1],10)+1):''}</div>
+        <div class="g-sub">${g.origen==='puerta'?'Venta en puerta':'DNI '+esc(g.dni||dni)+(dni.includes('_')?' · entrada '+(parseInt(dni.split('_')[1],10)+1):'')}</div>
         ${g.hora?`<div class="g-time">${g.hora}</div>`:''}
       </div>
     </div>`;
