@@ -16,13 +16,14 @@ details{background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 14
 .a{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}#msg{font-size:14px;margin:10px 0;min-height:20px;color:#333}
 .tabs{display:flex;gap:8px;margin-bottom:1rem}.tb.on{background:#111;color:#fff;border-color:#111}
 .o label{display:block;font-size:13px;color:#666;margin-bottom:8px}.o label input,.o label select{width:100%;margin-top:4px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-#t-pue h3{font-size:15px;margin:18px 0 8px}
+#t-pue h3,#t-inv h3{font-size:15px;margin:18px 0 8px}
 @media(max-width:560px){.st{grid-template-columns:repeat(2,1fr)}}
 </style></head><body><div class="c">
 <div class="hd"><h1>Panel de ventas · Organik Collabs</h1><div id="who"></div></div>
 <div id="login"><p>Ingresá con una cuenta de Google autorizada.</p><button class="p" onclick="entrar()">Ingresar con Google</button></div>
 <div id="app" style="display:none">
-  <div class="tabs"><button class="tb on" data-t="ped">Pedidos online</button><button class="tb" data-t="pue">Venta en puerta</button></div>
+  <div class="tabs"><button class="tb on" data-t="ped">Pedidos online</button><button class="tb" data-t="pue">Venta en puerta</button><button class="tb" data-t="inv">Invitados</button></div>
+  <div id="fin" class="m" style="font-size:12px;color:#888;margin:-4px 0 10px"></div>
   <div id="t-ped">
   <div class="st"><div><b id="s1">0</b>Pedidos</div><div><b id="s2">0</b>Pendientes</div><div><b id="s3">0</b>Entradas pagas</div><div><b id="s4">$0</b>Recaudado</div></div>
   <details><summary>Envío de emails</summary><input type="password" id="clave" placeholder="Clave del script de email (se guarda en este navegador)"></details>
@@ -42,6 +43,18 @@ details{background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 14
     <h3>Ventas en puerta</h3>
     <div id="plista"></div>
   </div>
+  <div id="t-inv" hidden>
+    <div class="st"><div><b id="i1">0</b>Invitados</div><div><b id="i2">0</b>Ya ingresaron</div><div><b id="i3">0</b>Faltan</div><div><b>$0</b>Gratis</div></div>
+    <div class="o">
+      <div class="t"><span>Nuevo invitado (entrada gratis)</span></div>
+      <label>Nombre y apellido<input id="in" placeholder="Nombre y apellido"></label>
+      <div class="g2"><label>DNI<input id="id" inputmode="numeric" maxlength="9" placeholder="Sin puntos"></label><label>Cantidad<input id="ic" type="number" min="1" max="10" value="1" inputmode="numeric"></label></div>
+      <label>Correo (opcional: se le envía el QR; no se guarda)<input id="ie" type="email" placeholder="correo@ejemplo.com"></label>
+      <button class="p" id="iv" style="width:100%;padding:14px">Crear invitación</button>
+    </div>
+    <h3>Invitados cargados</h3>
+    <div id="ilista"></div>
+  </div>
 </div>
 <div id="msg"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
@@ -49,7 +62,7 @@ details{background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 14
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, getDocs, writeBatch, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, doc, query, where, orderBy, onSnapshot, getDocs, writeBatch, updateDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const O = window.ORGANIK, app = initializeApp(O.firebase), auth = getAuth(app), db = getFirestore(app);
 const $ = id => document.getElementById(id);
@@ -63,17 +76,20 @@ $('fe').onchange = $('fb').oninput = () => pintar();
 
 window.entrar = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => aviso('No se pudo ingresar: ' + e.message));
 window.salir = () => signOut(auth);
-let puerta = [], bajaP = null;
+let puerta = [], bajaP = null, invs = [], bajaI = null;
 onAuthStateChanged(auth, u => {
   $('login').style.display = u ? 'none' : 'block'; $('app').style.display = u ? 'block' : 'none';
   $('who').innerHTML = u ? esc(u.email) + ' <button onclick="salir()">Salir</button>' : '';
   if (baja) { baja(); baja = null; }
   if (bajaP) { bajaP(); bajaP = null; }
+  if (bajaI) { bajaI(); bajaI = null; }
   if (u) baja = onSnapshot(query(collection(db, 'pedidos'), orderBy('creado', 'desc')),
     s => { pedidos = s.docs.map(d => ({ id: d.id, ...d.data() })); pintar(); },
     () => aviso('Esta cuenta no tiene permiso para ver los pedidos.'));
   if (u) bajaP = onSnapshot(query(collection(db, 'entradas'), where('origen', '==', 'puerta')),
     s => { puerta = s.docs.map(d => ({ id: d.id, ...d.data() })); pintarP(); }, () => {});
+  if (u) { bajaI = onSnapshot(query(collection(db, 'entradas'), where('origen', '==', 'invitado')),
+    s => { invs = s.docs.map(d => ({ id: d.id, ...d.data() })); pintarI(); }, () => {}); estadoFin(); }
 });
 
 function waLink(w) { let d = String(w).replace(/\D/g, '').replace(/^0+/, ''); if (d.length === 10) d = '549' + d; return 'https://wa.me/' + d; }
@@ -88,7 +104,7 @@ function tarjeta(p) {
   const fecha = c ? new Date(c).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
   let acc = '';
   if (p.estado === 'Pendiente') acc = `<button class="p" data-a="pagar" data-id="${esc(p.id)}">Marcar PAGADO y enviar entradas</button><button data-a="anular" data-id="${esc(p.id)}">Anular</button>`;
-  else if (p.estado === 'Pagado') acc = `<button data-a="reenviar" data-id="${esc(p.id)}">${p.emailEnviado ? 'Reenviar email' : 'Reintentar envío del email'}</button>`;
+  else if (p.estado === 'Pagado') acc = `<button data-a="reenviar" data-id="${esc(p.id)}">${p.emailEnviado ? 'Reenviar email' : 'Reintentar envío del email'}</button><button data-a="devolver" data-id="${esc(p.id)}">Anular / devolver</button>`;
   return `<div class="o"><div class="t"><span>${esc(p.nombre)}</span><span class="b ${esc(p.estado)}">${esc(p.estado)}</span></div>
     <div class="m">${esc(p.id)} · ${esc(fecha)} · DNI ${esc(p.dni)}</div>
     <div>${esc(p.cantidad)} × ${esc(p.tandaNombre)} = <b>${$$(p.total)}</b> · ${esc(p.metodo)}</div>
@@ -115,7 +131,7 @@ function qrPng(txt) {
   return cv.toDataURL('image/png').split(',')[1];   // solo el QR, sin texto
 }
 
-async function enviar(p, ids) {
+async function enviar(p, ids, marcar = true) {
   const clave = $('clave').value;
   if (!O.emailScriptUrl || /COMPLETAR/.test(O.emailScriptUrl) || !clave) throw new Error('falta la URL del script (config.js) o la clave (Envío de emails)');
   let j;
@@ -125,7 +141,7 @@ async function enviar(p, ids) {
     j = await r.json();
   } catch (e) { throw new Error('sin conexión o URL del script incorrecta'); }
   if (!j.ok) throw new Error(j.error || 'error desconocido');
-  await updateDoc(doc(db, 'pedidos', p.id), { emailEnviado: true, emailEnviadoEn: serverTimestamp() });
+  if (marcar) await updateDoc(doc(db, 'pedidos', p.id), { emailEnviado: true, emailEnviadoEn: serverTimestamp() });
 }
 
 async function pagar(p) {
@@ -135,7 +151,7 @@ async function pagar(p) {
   let n = 0; ya.forEach(d => { const k = parseInt(d.id.split('_')[1], 10); if (k >= n) n = k + 1; });
   const ids = Array.from({ length: p.cantidad }, (_, i) => p.dni + '_' + (n + i));   // 13445567_0, 13445567_1...
   const b = writeBatch(db);
-  ids.forEach(id => b.set(doc(db, 'entradas', id), { dni: p.dni, nombre: p.nombre, pedido: p.id, tanda: p.tandaNombre, ingreso: false, hora: '' }));
+  ids.forEach(id => b.set(doc(db, 'entradas', id), { origen: 'online', dni: p.dni, nombre: p.nombre, pedido: p.id, tanda: p.tanda, precio: p.precioUnitario, medio: p.metodo || 'Transferencia', ingreso: false, hora: '', creado: serverTimestamp() }));
   b.update(doc(db, 'pedidos', p.id), { estado: 'Pagado', entradas: ids, emailEnviado: false, pagadoEn: serverTimestamp() });
   await b.commit();
   aviso('Entradas creadas. Enviando email...');
@@ -148,7 +164,7 @@ const precioPuerta = (O.puerta && O.puerta.precio) || 0;
 $('pp').value = precioPuerta; $('p4').textContent = $$(precioPuerta);
 document.querySelectorAll('.tb').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tb').forEach(x => x.classList.toggle('on', x === b));
-  $('t-ped').hidden = b.dataset.t !== 'ped'; $('t-pue').hidden = b.dataset.t !== 'pue';
+  $('t-ped').hidden = b.dataset.t !== 'ped'; $('t-pue').hidden = b.dataset.t !== 'pue'; $('t-inv').hidden = b.dataset.t !== 'inv';
 });
 function calcP() {
   const n = Math.max(1, Math.min(50, parseInt($('pc').value, 10) || 1)), p = parseInt($('pp').value, 10) || 0;
@@ -195,6 +211,50 @@ $('plista').addEventListener('click', async ev => {
   ocupado = false;
 });
 
+// ---------- Invitados (gratis) ----------
+function pintarI() {
+  $('i1').textContent = invs.length; const ing = invs.filter(x => x.ingreso).length;
+  $('i2').textContent = ing; $('i3').textContent = invs.length - ing;
+  const l = [...invs].sort((a, b) => String(a.nombre).localeCompare(b.nombre));
+  $('ilista').innerHTML = l.length ? l.map(x => `<div class="o"><div class="t"><span>${esc(x.nombre)}</span><span class="b ${x.ingreso ? 'Pagado' : 'Pendiente'}">${x.ingreso ? 'Ingresó' : 'Sin ingresar'}</span></div>
+    <div class="m">${esc(x.id)}</div>
+    <div class="a">${x.ingreso ? '' : `<button data-a="anuli" data-id="${esc(x.id)}">Anular</button>`}</div></div>`).join('') : '<p>Todavía no hay invitados.</p>';
+}
+async function crearInvitados() {
+  const nombre = $('in').value.trim().replace(/\s+/g, ' '), dni = $('id').value.replace(/\D/g, ''), cant = parseInt($('ic').value, 10) || 1, correo = $('ie').value.trim().toLowerCase();
+  if (nombre.length < 3) { aviso('Escribí nombre y apellido.'); return; }
+  if (!/^\d{6,9}$/.test(dni)) { aviso('Revisá el DNI (6 a 9 números).'); return; }
+  if (cant < 1 || cant > 10) { aviso('La cantidad va de 1 a 10.'); return; }
+  if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { aviso('Revisá el correo, o dejalo vacío.'); return; }
+  if (!confirm('¿Crear ' + cant + ' entrada(s) gratis para ' + nombre + '?')) return;
+  const ya = await getDocs(query(collection(db, 'entradas'), where('dni', '==', dni)));
+  let n = 0; ya.forEach(d => { const k = parseInt(d.id.split('_')[1], 10); if (k >= n) n = k + 1; });
+  const ids = Array.from({ length: cant }, (_, i) => dni + '_' + (n + i)), b = writeBatch(db);
+  ids.forEach(id => b.set(doc(db, 'entradas', id), { origen: 'invitado', dni, nombre, tanda: 'Invitado', ingreso: false, hora: '', creado: serverTimestamp() }));
+  await b.commit(); $('in').value = ''; $('id').value = ''; $('ic').value = 1; $('ie').value = '';
+  if (correo) { try { await enviar({ correo, nombre }, ids, false); aviso('✓ Invitación creada y QR enviado a ' + correo); } catch (e) { aviso('Invitación creada, pero el email falló: ' + e.message + '. Anulala y volvé a crearla.'); } }
+  else aviso('✓ Invitación creada: ' + ids.join(', ') + ' (sin correo no se envía el QR)');
+}
+$('iv').onclick = async () => { if (ocupado) return; ocupado = true; $('iv').disabled = true; try { await crearInvitados(); } catch (e) { aviso('No se pudo crear: ' + e.message); } ocupado = false; $('iv').disabled = false; };
+$('ilista').addEventListener('click', async ev => {
+  const bt = ev.target.closest('button[data-a]'); if (!bt || ocupado) return; const x = invs.find(y => y.id === bt.dataset.id); if (!x) return;
+  ocupado = true;
+  try {
+    if (bt.dataset.a === 'anuli' && confirm('¿Anular la invitación de ' + x.nombre + '?')) { await deleteDoc(doc(db, 'entradas', x.id)); aviso('Invitación anulada.'); }
+  } catch (e) { aviso('No se pudo: ' + e.message); }
+  ocupado = false;
+});
+// ---------- Estado de la conexión con finanzas ----------
+async function estadoFin() {
+  try {
+    const j = await (await fetch(O.emailScriptUrl)).json(), f = j.finanzas;
+    if (!f) { $('fin').textContent = 'Finanzas: no configurado'; return; }
+    const hace = f.ultimo ? Math.round((Date.now() - Date.parse(f.ultimo)) / 60000) : null;
+    $('fin').textContent = 'Finanzas: ' + (f.activo ? 'activo' : 'PAUSADO') + (hace !== null ? ' · última sincronización hace ' + hace + ' min' : '') + (f.resultado ? ' · ' + f.resultado : '');
+  } catch (e) { $('fin').textContent = ''; }
+}
+setInterval(() => { if ($('app').style.display !== 'none') estadoFin(); }, 60000);
+
 $('lista').addEventListener('click', async ev => {
   const bt = ev.target.closest('button[data-a]'); if (!bt || ocupado) return;
   const p = pedidos.find(x => x.id === bt.dataset.id); if (!p) return;
@@ -202,6 +262,11 @@ $('lista').addEventListener('click', async ev => {
   try {
     if (bt.dataset.a === 'pagar') await pagar(p);
     else if (bt.dataset.a === 'reenviar') { aviso('Enviando email...'); await enviar(p, p.entradas); aviso('✓ Email enviado a ' + p.correo); }
+    else if (bt.dataset.a === 'devolver') {
+      if (confirm('¿Anular las entradas pagas de ' + p.nombre + ' (' + (p.entradas || []).length + ')?\nSe borran del sistema y se avisa a finanzas como anulación. La devolución del dinero la hacés vos.')) {
+        const b = writeBatch(db); (p.entradas || []).forEach(id => b.delete(doc(db, 'entradas', id)));
+        b.update(doc(db, 'pedidos', p.id), { estado: 'Anulado', entradas: [] }); await b.commit(); aviso('Entradas anuladas.'); }
+    }
     else if (bt.dataset.a === 'anular' && confirm('¿Anular el pedido de ' + p.nombre + '?')) { await updateDoc(doc(db, 'pedidos', p.id), { estado: 'Anulado' }); aviso('Pedido anulado.'); }
   } catch (e) { aviso('No se pudo completar: ' + e.message + (p.estado === 'Pagado' || bt.dataset.a === 'pagar' ? ' · Si las entradas ya se crearon, usá "Reintentar envío del email".' : '')); }
   ocupado = false; bt.disabled = false;

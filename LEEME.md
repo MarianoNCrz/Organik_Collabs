@@ -48,3 +48,12 @@ Direcciones: `https://marianoncrz.github.io/Organik_Collabs/` (tienda), `/admin/
 ## Notas
 - Solo se cobra por transferencia: el cliente transfiere, manda el comprobante por WhatsApp y vos tildás PAGADO en el panel cuando la plata entró.
 - Eliminá del repo el archivo `qr_sents.json` si contiene la clave del script anterior.
+
+## E. Conexión con la app de finanzas (opcional)
+1. En el mismo proyecto de Apps Script (el del email) agregá un archivo nuevo "finanzas" con `apps-script/finanzas.gs`.
+2. Completá `PROJECT_ID` (el de config.js).
+3. Engranaje > Propiedades del script > agregá `ORGANIK_TICKETS_KEY` = la clave de finanzas (NUNCA en GitHub).
+4. Ejecutá `probarFinanzas`: tiene que decir "OK 200". No carga nada.
+5. Cuando estén listos para vender (y sin pedidos/entradas de prueba): propiedad `FINANZAS_ACTIVO` = `si` y ejecutá `instalarSincronizacion`.
+6. Reimplementá el script web (Nueva versión) para que el panel muestre el estado de finanzas.
+Informa: venta online (al marcar PAGADO), venta en puerta, ingreso, invitado (al escanearlo) y anulaciones. Pausa: `FINANZAS_ACTIVO` = `no`.
