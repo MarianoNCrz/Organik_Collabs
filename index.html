@@ -4,8 +4,8 @@
 <meta property="og:title" content="Organik Collabs - ACCESOS">
 <meta property="og:description" content="Comprá tu entrada · Sábado 02/01/2027 · Tucumán · Acceso +21">
 <meta property="og:url" content="https://venisalbosqueorganik.netlify.app/"><meta property="og:locale" content="es_AR">
-<meta property="og:image" content="https://marianoncrz.github.io/Organik_Collabs/assets/og-icon.png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512">
-<meta name="twitter:card" content="summary"><meta name="twitter:title" content="Organik Collabs - ACCESOS"><meta name="twitter:image" content="https://marianoncrz.github.io/Organik_Collabs/assets/og-icon.png">
+<meta property="og:image" content="https://marianoncrz.github.io/Organik_Collabs/assets/og-organik.png"><meta property="og:image:width" content="600"><meta property="og:image:height" content="600">
+<meta name="twitter:card" content="summary"><meta name="twitter:title" content="Organik Collabs - ACCESOS"><meta name="twitter:image" content="https://marianoncrz.github.io/Organik_Collabs/assets/og-organik.png">
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192.png">
@@ -37,6 +37,13 @@ nav a{text-decoration:none}
 nav a:hover{color:var(--leaf)}
 .cta{display:inline-flex;align-items:center;gap:10px;background:var(--leaf);color:#0b130d;font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.12em;text-transform:uppercase;padding:16px 24px;border:0;text-decoration:none;cursor:pointer}
 .cta:hover{background:var(--amber)}
+.antes{margin:0;padding:14px 16px;border:1px solid var(--line);font-size:12.5px;line-height:1.55;color:var(--fg)}
+.antes b{color:var(--leaf);display:block;margin-bottom:6px;letter-spacing:.12em;text-transform:uppercase;font-weight:500}
+.antes ul{margin:0;padding-left:18px}.antes li{margin:3px 0}.antes a,.chk a{color:var(--leaf);text-decoration:underline}
+.pend{background:rgba(240,180,41,.12);border:2px solid var(--amber);padding:16px 18px;margin:0 0 18px;font-size:16px;line-height:1.45}
+.pend strong{display:block;font-size:20px;margin-bottom:4px;color:var(--amber)}
+.paso{display:flex;gap:14px;align-items:flex-start;margin:0 0 14px}.paso i{flex:none;width:30px;height:30px;border-radius:50%;background:var(--leaf);color:#0b130d;font:700 15px var(--mono);display:grid;place-items:center;font-style:normal}
+.paso div{flex:1;min-width:0}.cta.wa{font-size:15px;padding:20px 28px;width:100%;justify-content:center;box-sizing:border-box;margin:8px 0 0!important}
 .cta:disabled,.cta:disabled:hover{background:#2b382d;color:#74806f;cursor:not-allowed}
 form.off{opacity:.45}form.off .chk,form.off .tn,form.off label,form.off select{cursor:not-allowed}form.off .chk{border-color:var(--line);background:transparent}
 .ghost{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:6px}
@@ -149,7 +156,12 @@ footer .w{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       <label class="mono" for="w">WhatsApp<input id="w" type="tel" autocomplete="tel" placeholder="381 000 0000" required></label>
       <label class="mono" for="q">Cantidad de entradas<select id="q"></select></label>
       <div class="mono">Entrada<div id="tandas" style="margin-top:10px"></div></div>
-      <label class="chk" for="m"><input id="m" type="checkbox"><span><b>Tengo 21 años o más</b> y acepto el derecho de admisión.<small class="mono" style="display:block;color:var(--leaf);margin-top:6px">Tenés que tildar esta casilla para continuar</small></span></label>
+      <label class="chk" for="m"><input id="m" type="checkbox"><span><b>Tengo 21 años o más</b> y acepto el derecho de admisión y los <a href="terminos.html" target="_blank" rel="noopener">Términos y Condiciones</a>.<small class="mono" style="display:block;color:var(--leaf);margin-top:6px">Tenés que tildar esta casilla para continuar</small></span></label>
+      <div class="antes mono"><b>Antes de comprar</b><ul>
+        <li>Tu pedido queda <strong>PENDIENTE</strong> hasta que verifiquemos el pago. Es normal.</li>
+        <li>Tenés <strong>48 horas</strong> para transferir y enviarnos el comprobante por WhatsApp. Si no, se cancela.</li>
+        <li>Verificamos pagos de 10 a 23 hs. Te enviamos las entradas por email dentro de las 12 hs del pago.</li>
+        <li>Sin devoluciones. Si se suspende el evento, tu entrada vale para una de las 3 próximas fechas. <a href="terminos.html" target="_blank" rel="noopener">Ver Términos y Condiciones</a></li></ul></div>
       <p id="resumen" class="mono" style="margin:0;color:var(--leaf)"></p>
       <div><button class="cta" type="submit">Comprar entrada ↗</button></div>
       <p id="err" class="mono" style="color:var(--amber);margin:0" role="alert"></p>
@@ -228,15 +240,25 @@ footer .w{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     return Promise.race([trabajo,tiempo]);
   }
 
+  function avisarRegistro(c,d){   // email "pedido registrado": en segundo plano, nunca bloquea la compra
+    try{
+      if(!O.emailScriptUrl||/COMPLETAR/.test(O.emailScriptUrl))return;
+      fetch(O.emailScriptUrl,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({accion:'registro',id:c,nombre:d.nombre,correo:d.correo,cantidad:d.cantidad,tanda:d.tanda,total:d.total})}).catch(function(){});
+    }catch(e){}
+  }
   function mostrar(c,d){
     var monto=$$(d.total)+(d.cantidad>1?' ('+d.cantidad+' × '+$$(d.precioUnitario)+')':'');
     var msg='Hola! Te envío el comprobante de mi compra '+c+'. '+d.nombre+' · DNI '+d.dni+' · '+d.cantidad+' × '+d.tandaNombre+' · Total '+$$(d.total);
     var wa='https://wa.me/'+(O.whatsapp||'')+'?text='+encodeURIComponent(msg),tr=O.transferencia||{};
-    var h='<b>¡Pedido registrado!</b><p>Tu código de compra es <strong>'+c+'</strong>. Guardalo.</p><dl class="dl mono">'+
-      '<dt>Nombre</dt><dd>'+esc(d.nombre)+'</dd><dt>DNI</dt><dd>'+esc(d.dni)+'</dd><dt>Correo</dt><dd>'+esc(d.correo)+'</dd><dt>WhatsApp</dt><dd>'+esc(d.whatsapp)+'</dd>'+
+    var h='<b>¡Pedido registrado!</b><div class="pend"><strong>Todavía NO está confirmado</strong>Tu pedido está PENDIENTE. Para confirmarlo tenés que hacer 2 cosas, en las próximas 48 horas:</div>'+
+      '<div class="paso"><i>1</i><div>Transferí <strong>'+$$(d.total)+'</strong>'+(tr.alias?' al alias <strong>'+esc(tr.alias)+'</strong>':'')+(tr.titular?' (titular: '+esc(tr.titular)+')':'')+(tr.cbu?'. CBU: '+esc(tr.cbu):'')+'.</div></div>'+
+      '<div class="paso"><i>2</i><div><strong>Tocá el botón verde</strong> para enviar el comprobante por WhatsApp. Si no lo enviás, no podemos confirmar tu pago.</div></div>'+
+      '<a class="cta wa" href="'+wa+'" target="_blank" rel="noopener">Enviar comprobante por WhatsApp ↗</a>'+
+      '<p class="mono" style="margin-top:18px">Tu código de compra es <strong>'+c+'</strong>. Guardalo. También te enviamos estos datos por correo a '+esc(d.correo)+' (revisá spam o Promociones).</p>'+
+      '<dl class="dl mono"><dt>Nombre</dt><dd>'+esc(d.nombre)+'</dd><dt>DNI</dt><dd>'+esc(d.dni)+'</dd><dt>Correo</dt><dd>'+esc(d.correo)+'</dd><dt>WhatsApp</dt><dd>'+esc(d.whatsapp)+'</dd>'+
       '<dt>Entrada</dt><dd>'+esc(d.tandaNombre)+'</dd><dt>Monto a abonar</dt><dd>'+monto+'</dd><dt>Pago</dt><dd>'+esc(d.metodo)+'</dd></dl>';
-    h+='<p>Transferí <strong>'+$$(d.total)+'</strong>'+(tr.alias?' al alias <strong>'+esc(tr.alias)+'</strong>':'')+(tr.titular?' (titular: '+esc(tr.titular)+')':'')+(tr.cbu?'. CBU: '+esc(tr.cbu):'')+' y enviá el comprobante con tus datos al WhatsApp de Organik.</p><a class="cta" href="'+wa+'" target="_blank" rel="noopener">Enviar comprobante ↗</a>';
-    h+='<p class="mono" style="margin-top:18px">Cuando verifiquemos el pago te enviamos tus entradas con su código QR a '+esc(d.correo)+'. Revisá spam o Promociones.</p>';
+    h+='<p class="mono" style="margin-top:14px;font-size:12.5px;line-height:1.55">Verificamos pagos de 10 a 23 hs y te enviamos las entradas con su código QR por correo dentro de las 12 horas del pago. Si pasadas las 48 horas no recibimos el pago, el pedido se cancela y podés volver a comprar. <a href="terminos.html" target="_blank" rel="noopener" style="color:var(--leaf)">Términos y Condiciones</a></p>';
     ok.innerHTML=h; f.style.display='none'; ok.classList.add('show'); ok.scrollIntoView({behavior:'smooth',block:'start'});
   }
 
@@ -265,7 +287,7 @@ footer .w{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     pedirConfirmacion(datos,function(){
       if(abiertas().indexOf(t)<0){err.textContent='Esa entrada dejó de estar disponible.';return}
       var codigo=nuevoCodigo(); btn.disabled=true; btn.textContent='Enviando…';
-      guardar(codigo,datos).then(function(){mostrar(codigo,datos)},function(){btn.disabled=false;resumir();err.textContent='No pudimos registrar tu pedido. Revisá tu conexión y probá de nuevo.'});
+      guardar(codigo,datos).then(function(){avisarRegistro(codigo,datos);mostrar(codigo,datos)},function(){btn.disabled=false;resumir();err.textContent='No pudimos registrar tu pedido. Revisá tu conexión y probá de nuevo.'});
     });
   });
 })();
