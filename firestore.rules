@@ -7,8 +7,17 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.email_verified == true
         && request.auth.token.email in [
-          'organikxperience@gmail.com',
-          'marianoc57@gmail.com'
+          'marianoc57@gmail.com',
+          'sofy.alder@gmail.com'
+        ];
+    }
+
+    // Cuentas de SOLO LECTURA: ven los pedidos, pero no pueden modificar nada
+    function esLector() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'guezga@gmail.com'
         ];
     }
 
@@ -19,18 +28,20 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll(['nombre','dni','correo','whatsapp','cantidad','tanda','tandaNombre','precioUnitario','total','metodo','estado','mayor21','creado'])
         && request.resource.data.estado == 'Pendiente'
         && request.resource.data.creado == request.time
+        && request.time < timestamp.date(2027, 1, 1) + duration.time(3, 0, 0, 0)   // cierre de la venta web: 01/01/2027 00:00 (Argentina)
         && request.resource.data.mayor21 == true
         && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
         && request.resource.data.dni is string && request.resource.data.dni.matches('^[0-9]{7,8}$')
         && request.resource.data.correo is string && request.resource.data.correo.size() <= 120
         && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() <= 20
         && request.resource.data.cantidad is int && request.resource.data.cantidad >= 1 && request.resource.data.cantidad <= 10
-        && request.resource.data.tanda in ['SuperEarly','Early1','Early2','Tanda1','Tanda2']
+        && request.resource.data.tanda in ['SuperEarly','Early1','Tanda1','Tanda2']
         && request.resource.data.tandaNombre is string && request.resource.data.tandaNombre.size() <= 40
         && request.resource.data.metodo == 'Transferencia'
         && request.resource.data.precioUnitario is int
         && request.resource.data.total == request.resource.data.precioUnitario * request.resource.data.cantidad;
-      allow read, update, delete: if esAdmin();
+      allow read: if esAdmin() || esLector();
+      allow update, delete: if esAdmin();
     }
 
     // ENTRADAS: las crea el admin al confirmar el pago. La puerta las lee y solo puede pasar ingreso de false a true.

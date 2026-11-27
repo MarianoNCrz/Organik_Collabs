@@ -15,11 +15,12 @@ var EVENTO    = "Organik Collabs";
 var FECHA     = "Sábado 02 de Enero del 2027";
 var LOGO_URL  = "https://marianoncrz.github.io/Organik_Collabs/assets/logo-organik.png";
 var INSTAGRAM = "https://instagram.com/organik.music";
-var WHATSAPP  = "https://wa.me/5493816129812";   // mismo número que en config.js
+var WHATSAPP  = "https://wa.me/5493814666911";   // mismo número que en config.js
 
 function doPost(e) {
   try {
     var d = JSON.parse(e.postData.contents);
+    if (d.accion === "registro") return registroPedido_(d);   // email automático de pedido registrado (registro.gs)
     if (d.clave !== CLAVE) return salida_({ ok: false, error: "Clave incorrecta" });
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email || "")) return salida_({ ok: false, error: "Email inválido: " + d.email });
     var qrs = d.qrs || [];
@@ -54,6 +55,6 @@ function doPost(e) {
   } catch (err) { return salida_({ ok: false, error: String(err) }); }
 }
 
-function doGet() { return salida_({ ok: true, mensaje: "Envío de entradas activo", restante: MailApp.getRemainingDailyQuota() }); }
+function doGet() { return salida_({ ok: true, mensaje: "Envío de entradas activo", cuenta: Session.getEffectiveUser().getEmail(), restante: MailApp.getRemainingDailyQuota(), finanzas: (typeof estadoFinanzas_ === "function" ? estadoFinanzas_() : null) }); }
 function salida_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function esc_(s) { return String(s || "").replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
